@@ -1,0 +1,22 @@
+quarkus:
+  http:
+    root-path: "/api"
+    non-application-root-path: ${quarkus.http.root-path}
+  log:
+    console:
+      format: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5p [%-50.50c{2.}] - %s%e%n"
+      level: "DEBUG"
+
+server:
+  name: 'test'
+  streams:
+    - name: "RTSP Dummy Stream"
+      id: "Stream1"
+      url: "rtsp://localhost:8554/live.stream"
+    - name: "Camera Stream"
+      id: "Stream2"
+      url: "rtsp://localhost:8554/live.stream"
+  worker:
+    intialisation-timout-ms: 5000
+    ffmpeg-path: "/opt/homebrew/bin/ffmpeg"
+
