@@ -1,8 +1,8 @@
-package ill.eu.rtsptofmp4.business.streaming;
+package eu.ill.rtsptofmp4.business.streaming;
 
-import ill.eu.rtsptofmp4.business.mp4frag.MP4Frag;
-import ill.eu.rtsptofmp4.models.StreamInfo;
-import ill.eu.rtsptofmp4.models.exceptions.StreamingException;
+import eu.ill.rtsptofmp4.business.mp4frag.MP4Frag;
+import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
+import eu.ill.rtsptofmp4.models.StreamInfo;
 import io.quarkus.logging.Log;
 
 import java.io.IOException;
@@ -66,7 +66,7 @@ public class RTSPWorker {
         }
     }
 
-    public synchronized String getMime() throws StreamingException {
+    public String getMime() throws StreamingException {
         if (this.mp4Frag != null) {
             return this.mp4Frag.getMime(this.initialisationTimeoutMs);
 
@@ -75,7 +75,7 @@ public class RTSPWorker {
         }
     }
 
-    public synchronized byte[] getInitialisation() throws StreamingException {
+    public byte[] getInitialisation() throws StreamingException {
         if (this.mp4Frag != null) {
             return this.mp4Frag.getInitialisation(this.initialisationTimeoutMs);
 
@@ -122,7 +122,7 @@ public class RTSPWorker {
         int exitCode = 0;
         try {
             this.process = processBuilder.start();
-            this.mp4Frag.process(this.process.getInputStream(), this.process.getErrorStream());
+            this.mp4Frag.process(this.process);
 
             exitCode = this.process.waitFor();
             this.process = null;

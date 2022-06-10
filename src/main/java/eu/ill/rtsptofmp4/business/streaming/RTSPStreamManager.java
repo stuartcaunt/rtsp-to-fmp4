@@ -1,7 +1,7 @@
-package ill.eu.rtsptofmp4.business.streaming;
+package eu.ill.rtsptofmp4.business.streaming;
 
-import ill.eu.rtsptofmp4.ServerConfig;
-import ill.eu.rtsptofmp4.models.StreamInfo;
+import eu.ill.rtsptofmp4.ServerConfig;
+import eu.ill.rtsptofmp4.models.StreamInfo;
 import io.quarkus.logging.Log;
 
 import javax.enterprise.context.ApplicationScoped;

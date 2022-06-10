@@ -1,8 +1,8 @@
-package ill.eu.rtsptofmp4.business.streaming;
+package eu.ill.rtsptofmp4.business.streaming;
 
-import ill.eu.rtsptofmp4.models.StreamInfo;
-import ill.eu.rtsptofmp4.models.StreamInit;
-import ill.eu.rtsptofmp4.models.exceptions.StreamingException;
+import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
+import eu.ill.rtsptofmp4.models.StreamInfo;
+import eu.ill.rtsptofmp4.models.StreamInit;
 import io.quarkus.logging.Log;
 
 import java.util.HashSet;

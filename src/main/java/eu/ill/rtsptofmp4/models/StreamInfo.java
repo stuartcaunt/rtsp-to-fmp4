@@ -1,4 +1,4 @@
-package ill.eu.rtsptofmp4.models;
+package eu.ill.rtsptofmp4.models;
 
 public class StreamInfo {
 

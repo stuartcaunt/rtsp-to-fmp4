@@ -1,4 +1,4 @@
-package ill.eu.rtsptofmp4;
+package eu.ill.rtsptofmp4;
 
 import io.quarkus.runtime.annotations.StaticInitSafe;
 import io.smallrye.config.ConfigMapping;

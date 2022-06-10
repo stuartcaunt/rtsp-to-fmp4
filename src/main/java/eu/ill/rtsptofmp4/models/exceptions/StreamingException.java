@@ -1,4 +1,4 @@
-package ill.eu.rtsptofmp4.models.exceptions;
+package eu.ill.rtsptofmp4.models.exceptions;
 
 public class StreamingException extends Exception {
 

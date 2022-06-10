@@ -1,4 +1,4 @@
-package ill.eu.rtsptofmp4.controllers.dto;
+package eu.ill.rtsptofmp4.controllers.dto;
 
 public class StreamConnectionDto {
     private String clientId;

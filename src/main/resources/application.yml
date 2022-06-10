@@ -5,7 +5,10 @@ quarkus:
   log:
     console:
       format: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5p [%-50.50c{2.}] - %s%e%n"
-      level: "DEBUG"
+    level: "INFO"
+    category:
+      "eu.ill":
+        level: "DEBUG"
 
 server:
   name: 'test'
@@ -17,6 +20,6 @@ server:
       id: "Stream2"
       url: "rtsp://localhost:8554/live.stream"
   worker:
-    intialisation-timout-ms: 5000
+    intialisation-timout-ms: 30000
     ffmpeg-path: "/opt/homebrew/bin/ffmpeg"
 

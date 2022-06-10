@@ -1,4 +1,4 @@
-package ill.eu.rtsptofmp4.business.streaming;
+package eu.ill.rtsptofmp4.business.streaming;
 
 public interface RTSPStreamClient {
     void onSegment(byte[] segment);

@@ -1,10 +1,10 @@
-package ill.eu.rtsptofmp4.controllers;
+package eu.ill.rtsptofmp4.controllers;
 
-import ill.eu.rtsptofmp4.controllers.dto.StreamConnectionDto;
-import ill.eu.rtsptofmp4.models.StreamInfo;
-import ill.eu.rtsptofmp4.models.StreamInit;
-import ill.eu.rtsptofmp4.models.exceptions.StreamingException;
-import ill.eu.rtsptofmp4.business.services.StreamService;
+import eu.ill.rtsptofmp4.controllers.dto.StreamConnectionDto;
+import eu.ill.rtsptofmp4.models.StreamInfo;
+import eu.ill.rtsptofmp4.models.StreamInit;
+import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
+import eu.ill.rtsptofmp4.business.services.StreamService;
 import io.quarkus.logging.Log;
 
 import javax.inject.Inject;
