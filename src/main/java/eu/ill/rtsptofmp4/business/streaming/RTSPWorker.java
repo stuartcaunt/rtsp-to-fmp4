@@ -1,6 +1,7 @@
 package eu.ill.rtsptofmp4.business.streaming;
 
 import eu.ill.rtsptofmp4.business.mp4frag.MP4Frag;
+import eu.ill.rtsptofmp4.models.exceptions.MP4FragException;
 import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
 import eu.ill.rtsptofmp4.models.StreamInfo;
 import io.quarkus.logging.Log;
@@ -58,7 +59,7 @@ public class RTSPWorker {
                 this.thread.join();
 
             } catch (InterruptedException e) {
-                Log.errorf("Failed to join worker thread for stream '%s", this.streamInfo.getName());
+                Log.errorf("Failed to join worker thread for stream '%s'", this.streamInfo.getName());
             }
 
             this.mp4Frag = null;
@@ -77,7 +78,7 @@ public class RTSPWorker {
 
     public byte[] getInitialisation() throws StreamingException {
         if (this.mp4Frag != null) {
-            return this.mp4Frag.getInitialisation(this.initialisationTimeoutMs);
+            return this.mp4Frag.getInitialization(this.initialisationTimeoutMs);
 
         } else {
             throw new StreamingException("ffmpeg process for RTSP stream '%s' does not exist", this.streamInfo.getName());
@@ -133,6 +134,10 @@ public class RTSPWorker {
 
         } catch (InterruptedException e) {
             Log.errorf("InterruptedException received while piping ffmpeg output: %s", e.getMessage());
+            exitCode = 1;
+
+        } catch (MP4FragException e) {
+            Log.errorf("MP4FragException received while piping ffmpeg output: %s", e.getMessage());
             exitCode = 1;
         }
 
