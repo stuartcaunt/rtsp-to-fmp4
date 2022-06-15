@@ -76,7 +76,7 @@ public class MP4Frag {
             while (inputStream.available() > 0) {
                 int available = inputStream.available();
                 byte[] chunk = inputStream.readNBytes(available);
-                Log.debugf("Received %d bytes from ffmpeg for processing", available);
+                Log.tracef("Received %d bytes from ffmpeg for processing", available);
 
                 this.parseChunk(new StreamBuffer(chunk));
             }

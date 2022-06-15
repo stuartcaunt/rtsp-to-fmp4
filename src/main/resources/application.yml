@@ -22,4 +22,6 @@ server:
   worker:
     intialisation-timout-ms: 30000
     ffmpeg-path: "/opt/homebrew/bin/ffmpeg"
+  publisher:
+    port: 8084
 

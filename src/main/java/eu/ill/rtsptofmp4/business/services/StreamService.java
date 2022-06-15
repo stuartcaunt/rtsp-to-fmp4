@@ -11,6 +11,7 @@ import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
 import io.quarkus.logging.Log;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.util.*;
@@ -37,6 +38,13 @@ public class StreamService {
     @PostConstruct
     void init() {
         this.streams = this.serverConfig.streams().stream().map(stream -> new StreamInfo(stream.id(), stream.name(), stream.url())).collect(Collectors.toList());
+
+        this.streamPublisher.start();
+    }
+
+    @PreDestroy
+    void terminate() {
+        this.streamPublisher.stop();
     }
 
     public List<StreamInfo> getStreams() {

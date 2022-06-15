@@ -11,6 +11,7 @@ public interface ServerConfig {
     String name();
     List<StreamConfig> streams();
     WorkerConfig worker();
+    PublisherConfig publisher();
 
     interface StreamConfig {
         String id();
@@ -21,6 +22,10 @@ public interface ServerConfig {
     interface WorkerConfig {
         int intialisationTimoutMs();
         String ffmpegPath();
+    }
+
+    interface PublisherConfig {
+        int port();
     }
 
 }
