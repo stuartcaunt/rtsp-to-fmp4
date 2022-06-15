@@ -1,6 +1,7 @@
 package eu.ill.rtsptofmp4.controllers;
 
 import eu.ill.rtsptofmp4.controllers.dto.StreamConnectionDto;
+import eu.ill.rtsptofmp4.controllers.dto.StreamDisconnectionDto;
 import eu.ill.rtsptofmp4.models.StreamInfo;
 import eu.ill.rtsptofmp4.models.StreamInit;
 import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
@@ -20,47 +21,56 @@ public class StreamController {
 
     @GET
     public List<StreamInfo> getStreams() {
-        List<StreamInfo> streams = this.streamService.getStreams();
+        List<StreamInfo> streams = this.streamService.getAllStreamInfos();
 
         return streams;
     }
 
     @POST
-    @Path("{streamId}/connect")
-    public StreamInit connect(String streamId, StreamConnectionDto streamConnection) {
-        if (streamConnection == null || streamConnection.getClientId() == null) {
-            throw new BadRequestException("Stream connection request body does not have a clientId");
+    @Path("/connect")
+    public StreamInit connect(StreamConnectionDto streamConnection) {
+        if (streamConnection == null) {
+            throw new BadRequestException("Request body does not contain stream connection data");
+        }
+
+        if (streamConnection.getId() == null || streamConnection.getName() == null || streamConnection.getUrl() == null) {
+            throw new BadRequestException("Stream connection request body does not have valid stream data");
+        }
+
+        if (streamConnection.getClientId() != null && this.streamService.hasClient(streamConnection.getClientId())) {
+            throw new BadRequestException("Stream connection request uses clientId that is already connected");
         }
 
         try {
-            StreamInit streamInit = this.streamService.connect(streamId, streamConnection.getClientId());
+            StreamInfo streamInfo = new StreamInfo(streamConnection.getId(), streamConnection.getName(), streamConnection.getUrl());
+            StreamInit streamInit = this.streamService.connect(streamInfo, streamConnection.getClientId());
             return streamInit;
 
-        } catch (NoSuchElementException e) {
-            throw new NotFoundException("Could not find stream details with Stream Id " + streamId);
-
         } catch (StreamingException e) {
-            Log.errorf("An error occurred connecting to stream %s: %s", streamId, e.getMessage());
-
-            this.streamService.disconnect(streamId, streamConnection.getClientId());
+            Log.errorf("An error occurred connecting to stream %s: %s", streamConnection.getId(), e.getMessage());
 
             throw new InternalServerErrorException(e.getMessage());
         }
     }
 
     @POST
-    @Path("{streamId}/disconnect")
-    public String disconnect(String streamId, StreamConnectionDto streamConnection) {
-        if (streamConnection == null || streamConnection.getClientId() == null) {
+    @Path("/disconnect")
+    public String disconnect(StreamDisconnectionDto streamDisconnection) {
+        if (streamDisconnection == null || streamDisconnection.getClientId() == null) {
             throw new BadRequestException("Stream disconnection request body does not have a clientId");
         }
 
+        String clientId = streamDisconnection.getClientId();
+        if (!this.streamService.hasClient(clientId)) {
+            throw new NotFoundException("%s is not associated to any streams" + clientId);
+        }
+
         try {
-            this.streamService.disconnect(streamId, streamConnection.getClientId());
+            this.streamService.disconnect(clientId);
             return "Ok";
 
-        } catch (NoSuchElementException e) {
-            throw new NotFoundException("Could not find stream details with Stream Id " + streamId);
+        } catch (Exception e) {
+            throw new InternalServerErrorException("An error occurred disconnecting client " + clientId + ": " + e.getMessage());
         }
     }
 }

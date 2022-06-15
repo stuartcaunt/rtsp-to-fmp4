@@ -24,11 +24,15 @@ public class StreamRelay implements RTSPStreamClient {
         this.errorHandler = errorHandler;
     }
 
-    public String getStreamId() {
+    public String getId() {
         return this.streamInfo.getId();
     }
 
-    public void addClient(String clientId) {
+    public StreamInfo getInfo() {
+        return this.streamInfo;
+    }
+
+    public StreamInit addClient(String clientId) throws StreamingException {
         if (!this.hasClient(clientId)) {
             this.clientIds.add(clientId);
 
@@ -41,6 +45,8 @@ public class StreamRelay implements RTSPStreamClient {
         } else {
             Log.debugf("Client '%s' is already attached to stream '%s'", clientId, this.streamInfo.getName());
         }
+
+        return this.getInitData(clientId);
     }
 
     public void removeClient(String clientId) {
@@ -71,7 +77,7 @@ public class StreamRelay implements RTSPStreamClient {
         this.clientIds.clear();
     }
 
-    public StreamInit getInitData() throws StreamingException {
+    public StreamInit getInitData(String clientId) throws StreamingException {
 
         try {
             String mime = this.rtspWorker.getMime();
@@ -80,7 +86,7 @@ public class StreamRelay implements RTSPStreamClient {
             byte[] initialisation = this.rtspWorker.getInitialisation();
             Log.debugf("Got initialisation of length %d from ffmpeg for stream '%s'", initialisation.length, this.streamInfo.getName());
 
-            return new StreamInit(mime, initialisation);
+            return new StreamInit(clientId, mime, initialisation);
 
         } catch (StreamingException e) {
             throw new StreamingException("Failed to get stream init data: %s", e.getMessage());

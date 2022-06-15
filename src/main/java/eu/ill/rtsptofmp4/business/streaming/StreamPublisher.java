@@ -73,7 +73,7 @@ public class StreamPublisher {
 
             try {
                 this.socket.bind(address);
-                Log.debugf("Stream Publisher bound to %s", address);
+                Log.infof("Stream Publisher bound to %s", address);
 
             } catch (Exception e) {
                 Log.errorf("Failed to bind Stream Publisher socket to %s: %s", address, e.getMessage());
@@ -85,7 +85,7 @@ public class StreamPublisher {
         if (this.socket != null) {
             this.socket.close();
             this.socket = null;
-            Log.debug("Steam Publisher socket closed");
+            Log.info("Steam Publisher socket closed");
         }
 
     }

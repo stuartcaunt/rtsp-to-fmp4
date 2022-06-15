@@ -8,20 +8,12 @@ quarkus:
     level: "INFO"
     category:
       "eu.ill":
-        level: "DEBUG"
+        level: ${RTSP_TO_FMP4_LOGGING_LEVEL:DEBUG}
 
 server:
-  name: 'test'
-  streams:
-    - name: "RTSP Dummy Stream"
-      id: "Stream1"
-      url: "rtsp://localhost:8554/live.stream"
-    - name: "Camera Stream"
-      id: "Stream2"
-      url: "rtsp://localhost:8554/live.stream"
   worker:
-    intialisation-timout-ms: 30000
-    ffmpeg-path: "/opt/homebrew/bin/ffmpeg"
+    intialisation-timout-ms: ${RTSP_TO_FMP4_INITIALISATION_TIMEOUT_MS:30000}
+    ffmpeg-path: ${RTSP_TO_FMP4_FFMPEG_PATH:/opt/homebrew/bin/ffmpeg}
   publisher:
-    port: 8084
+    port: ${RTSP_TO_FMP4_PUBLISHER_PORT:8084}
 

@@ -1,14 +1,14 @@
 package eu.ill.rtsptofmp4.business.services;
 
-import eu.ill.rtsptofmp4.ServerConfig;
-import eu.ill.rtsptofmp4.business.streaming.StreamPublisher;
 import eu.ill.rtsptofmp4.business.streaming.RTSPStreamManager;
 import eu.ill.rtsptofmp4.business.streaming.RTSPWorker;
+import eu.ill.rtsptofmp4.business.streaming.StreamPublisher;
 import eu.ill.rtsptofmp4.business.streaming.StreamRelay;
 import eu.ill.rtsptofmp4.models.StreamInfo;
 import eu.ill.rtsptofmp4.models.StreamInit;
 import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
 import io.quarkus.logging.Log;
+import org.apache.commons.lang3.RandomStringUtils;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -21,24 +21,19 @@ import java.util.stream.Collectors;
 public class StreamService {
 
     @Inject
-    ServerConfig serverConfig;
-
-    @Inject
     RTSPStreamManager rtspStreamManager;
 
     @Inject
     StreamPublisher streamPublisher;
 
-    private List<StreamInfo> streams;
     private final List<StreamRelay> streamRelays = new ArrayList<>();
+    private final Map<String, StreamRelay> clients = new HashMap<>();
 
     public StreamService() {
     }
 
     @PostConstruct
     void init() {
-        this.streams = this.serverConfig.streams().stream().map(stream -> new StreamInfo(stream.id(), stream.name(), stream.url())).collect(Collectors.toList());
-
         this.streamPublisher.start();
     }
 
@@ -47,24 +42,26 @@ public class StreamService {
         this.streamPublisher.stop();
     }
 
-    public List<StreamInfo> getStreams() {
-        return this.streams;
+    public List<StreamInfo> getAllStreamInfos() {
+        return this.streamRelays.stream().map(StreamRelay::getInfo).collect(Collectors.toList());
     }
 
-    public StreamInfo getStream(String streamId) {
-        Optional<StreamInfo> optionalStreamInfo = this.streams.stream().filter(stream -> Objects.equals(stream.getId(), streamId)).findFirst();
-        return optionalStreamInfo.orElse(null);
+    public boolean hasClient(String clientId) {
+        return this.clients.containsKey(clientId);
     }
 
-    public StreamInit connect(String streamId, String clientId) throws StreamingException {
-        StreamInfo streamInfo = this.getStream(streamId);
-        if (streamInfo == null) {
-            throw new NoSuchElementException("Could not find stream details for stream with id " + streamId);
+    public StreamInit connect(StreamInfo streamInfo, String clientId) throws StreamingException {
+        if (clientId != null && this.hasClient(clientId)) {
+            throw new StreamingException("ClientId %s is already connected to a stream", clientId);
+        }
+
+        if (clientId == null) {
+            clientId = this.generateClientId();
         }
 
         StreamRelay streamRelay;
         synchronized (this.streamRelays) {
-            streamRelay = this.getStreamRelay(streamId);
+            streamRelay = this.getStreamRelayByStreamInfo(streamInfo);
             if (streamRelay == null) {
                 Log.infof("Creating new Stream Relay for stream '%s'", streamInfo.getName());
 
@@ -75,59 +72,77 @@ public class StreamService {
 
                 this.streamRelays.add(streamRelay);
             }
-
-            // Add the client to the stream relay (if first one it'll start ffmpeg)
-            streamRelay.addClient(clientId);
         }
 
         // Get the init data
         try {
-            return streamRelay.getInitData();
+            // Add the client to the stream relay (if first one it'll start ffmpeg) and wait for init data
+            StreamInit streamInit = streamRelay.addClient(clientId);
+            this.clients.put(clientId, streamRelay);
+
+            return streamInit;
 
         } catch (StreamingException e) {
+            this.disconnect(clientId);
+
             throw e;
         }
     }
 
-    public void disconnect(String streamId, String clientId) {
-        StreamInfo streamInfo = this.getStream(streamId);
-        if (streamInfo == null) {
-            throw new NoSuchElementException("Could not find stream details for stream with id " + streamId);
-        }
-
+    public void disconnect(String clientId) {
         synchronized (this.streamRelays) {
-            StreamRelay streamRelay = this.getStreamRelay(streamId);
+            StreamRelay streamRelay = this.getStreamRelayForClientId(clientId);
             if (streamRelay != null) {
                 streamRelay.removeClient(clientId);
 
                 if (!streamRelay.hasClients()) {
-                    Log.infof("Removing Stream Relay for stream '%s'", streamInfo.getName());
-                    this.removeStreamRelay(streamId);
+                    Log.infof("Removing Stream Relay for stream '%s'", streamRelay.getInfo().getName());
+                    this.removeStreamRelay(streamRelay.getInfo());
                 }
 
             } else {
-                Log.debugf("Stream Relay for stream '%s' does not exist", streamId);
+                Log.debugf("Stream Relay for client '%s' does not exist", clientId);
             }
         }
     }
 
-    private StreamRelay getStreamRelay(String streamId) {
-        Optional<StreamRelay> optionalStreamRelay = this.streamRelays.stream().filter(streamRelay -> Objects.equals(streamRelay.getStreamId(), streamId)).findFirst();
-        return optionalStreamRelay.orElse(null);
+    private String generateClientId() {
+        String uuid = RandomStringUtils.randomAlphanumeric(10);
+
+        while (this.clients.containsKey(uuid)) {
+            uuid = RandomStringUtils.randomAlphanumeric(10);
+        }
+
+        return uuid;
     }
 
-    private synchronized void removeStreamRelay(String streamId) {
-        this.streamRelays.removeIf(streamRelay -> Objects.equals(streamRelay.getStreamId(), streamId));
+    private StreamRelay getStreamRelayByStreamInfo(StreamInfo streamInfo) {
+        synchronized (this.streamRelays) {
+            return this.streamRelays.stream()
+                    .filter(streamRelay -> streamRelay.getInfo().equals(streamInfo))
+                    .findFirst()
+                    .orElse(null);
+        }
+    }
+
+    private StreamRelay getStreamRelayForClientId(String clientId) {
+        return this.clients.get(clientId);
+    }
+
+    private void removeStreamRelay(StreamInfo streamInfo) {
+        synchronized (this.streamRelays) {
+            this.streamRelays.removeIf(streamRelay -> Objects.equals(streamRelay.getInfo(), streamInfo));
+        }
     }
 
     private void handleError(StreamInfo streamInfo, String error) {
         Log.errorf("Removing stream '%s' due to errors: %s", streamInfo.getName(), error);
 
         synchronized (this.streamRelays) {
-            StreamRelay streamRelay = this.getStreamRelay(streamInfo.getId());
+            StreamRelay streamRelay = this.getStreamRelayByStreamInfo(streamInfo);
             if (streamRelay != null) {
                 streamRelay.stop();
-                this.removeStreamRelay(streamInfo.getId());
+                this.removeStreamRelay(streamInfo);
             }
         }
     }
