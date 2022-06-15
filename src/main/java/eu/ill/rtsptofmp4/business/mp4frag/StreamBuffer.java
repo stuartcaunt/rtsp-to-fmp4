@@ -4,6 +4,7 @@ import eu.ill.rtsptofmp4.models.exceptions.MP4FragException;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 public class StreamBuffer {
 
@@ -104,7 +105,8 @@ public class StreamBuffer {
     }
 
     public StreamBuffer slice(int startIndex) {
-        return this.slice(startIndex, this.limit);
+        // Calculate an endIndex relative to the current offset (startIndex is already relative to current offset)
+        return this.slice(startIndex, this.limit - this.offset);
     }
 
     public StreamBuffer slice(int startIndex, int endIndex) {
@@ -136,8 +138,12 @@ public class StreamBuffer {
         return new StreamBuffer(filtered);
     }
 
-    public static StreamBuffer concat(StreamBuffer[] buffers) {
-        return StreamBuffer.concat(buffers, -1);
+    public static StreamBuffer concat(StreamBuffer buffer1, StreamBuffer buffer2, int bufferLength) {
+        return StreamBuffer.concat(new StreamBuffer[]{buffer1, buffer2}, bufferLength);
+    }
+
+    public static StreamBuffer concat(List<StreamBuffer> buffers, int bufferLength) {
+        return StreamBuffer.concat(buffers.toArray(new StreamBuffer[0]), bufferLength);
     }
 
     public static StreamBuffer concat(StreamBuffer[] buffers, int bufferLength) {
