@@ -1,9 +1,7 @@
 package eu.ill.rtsptofmp4;
 
-import eu.ill.rtsptofmp4.business.mp4frag.CopyingStreamBuffer;
 import eu.ill.rtsptofmp4.business.mp4frag.MP4Frag;
 import eu.ill.rtsptofmp4.business.mp4frag.StreamBuffer;
-import eu.ill.rtsptofmp4.business.mp4frag.VirtualBuffer;
 import eu.ill.rtsptofmp4.models.exceptions.MP4FragException;
 import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
 import org.junit.jupiter.api.Assertions;
@@ -13,92 +11,6 @@ import java.util.Base64;
 
 public class MP4FragTest {
 
-    @Test
-    public void testSingleVirtualBuffer() {
-        VirtualBuffer virtualBuffer = new VirtualBuffer();
-
-        byte[] firstBuffer = new byte[]{0, 0, 0, 1, 0 ,0 ,0, 2};
-        virtualBuffer.addBuffer(firstBuffer);
-
-        long one = virtualBuffer.readUInt32(0);
-        long two = virtualBuffer.readUInt32(0);
-
-        Assertions.assertEquals(1L, one);
-        Assertions.assertEquals(2L, two);
-    }
-
-    @Test
-    public void testMultipleVirtualBuffer() {
-        VirtualBuffer virtualBuffer = new VirtualBuffer();
-
-        byte[] firstBuffer = new byte[]{0, 0, 0, 1, 0 ,0};
-        byte[] secondBuffer = new byte[]{0, 2, 0, 0, 0, 3, 0 ,0 ,0, 4};
-        virtualBuffer.addBuffer(firstBuffer);
-        virtualBuffer.addBuffer(secondBuffer);
-
-        long one = virtualBuffer.readUInt32(0);
-        long two = virtualBuffer.readUInt32(0);
-        long three = virtualBuffer.readUInt32(0);
-        long four = virtualBuffer.readUInt32(0);
-
-        Assertions.assertEquals(1L, one);
-        Assertions.assertEquals(2L, two);
-        Assertions.assertEquals(3L, three);
-        Assertions.assertEquals(4L, four);
-    }
-
-    @Test
-    public void testSingleCopyingStreamBuffer() {
-        CopyingStreamBuffer streamBuffer = new CopyingStreamBuffer();
-
-        byte[] firstBuffer = new byte[]{0, 0, 0, 1, 0 ,0 ,0, 2};
-        streamBuffer.addBuffer(firstBuffer);
-
-        long one = streamBuffer.readUInt32BE(0);
-        long two = streamBuffer.readUInt32BE(4);
-
-        Assertions.assertEquals(1L, one);
-        Assertions.assertEquals(2L, two);
-    }
-
-    @Test
-    public void testMultipleCopyingStreamBuffer() {
-        CopyingStreamBuffer streamBuffer = new CopyingStreamBuffer();
-
-        byte[] firstBuffer = new byte[]{0, 0, 0, 1, 0 ,0};
-        streamBuffer.addBuffer(firstBuffer);
-        long one = streamBuffer.readUInt32BE(0);
-
-        byte[] secondBuffer = new byte[]{0, 2, 0, 0, 0, 3, 0 ,0 ,0, 4};
-        streamBuffer.addBuffer(secondBuffer);
-
-        long two = streamBuffer.readUInt32BE(4);
-        long three = streamBuffer.readUInt32BE(8);
-        long four = streamBuffer.readUInt32BE(12);
-
-        Assertions.assertEquals(1L, one);
-        Assertions.assertEquals(2L, two);
-        Assertions.assertEquals(3L, three);
-        Assertions.assertEquals(4L, four);
-    }
-
-    @Test
-    public void testCopyingStreamBufferIndexOf() {
-        CopyingStreamBuffer streamBuffer = new CopyingStreamBuffer();
-
-        byte[] mainBuffer = new byte[]{0, 0, 0, 1, 0 ,0, 0, 2, 0, 0, 0, 3, 0 ,0 ,0, 4, 0, 0, 0, 5, 0, 0, 0, 6};
-        streamBuffer.addBuffer(mainBuffer);
-        long one = streamBuffer.readUInt32BE(0);
-        Assertions.assertEquals(1L, one);
-
-        byte[] testBuffer = new byte[]{0, 0, 0, 5};
-        long indexOf = streamBuffer.indexOf(testBuffer);
-        Assertions.assertEquals(16, indexOf);
-
-        long five = streamBuffer.readUInt32BE((int)indexOf);
-
-        Assertions.assertEquals(5L, five);
-    }
 
     @Test
     public void testStreamBuffer() throws MP4FragException {
@@ -166,7 +78,7 @@ public class MP4FragTest {
 
     @Test
     public void testParseCodecAVCC() throws MP4FragException, StreamingException {
-        MP4Frag mp4Frag = new MP4Frag();
+        MP4Frag mp4Frag = new MP4Frag((segment) -> {});
 
         String ftypBase64 = "AAAAHGZ0eXBpc281AAACAGlzbzVpc282bXA0MQ==";
         StreamBuffer ftypeChunk = new StreamBuffer(Base64.getDecoder().decode(ftypBase64));
@@ -183,7 +95,7 @@ public class MP4FragTest {
 
     @Test
     public void testParseCodecHVCC() throws MP4FragException, StreamingException {
-        MP4Frag mp4Frag = new MP4Frag();
+        MP4Frag mp4Frag = new MP4Frag((segment) -> {});
 
         String ftypBase64 = "AAAAHGZ0eXBpc281AAACAGlzbzVpc282bXA0MQ==";
         StreamBuffer ftypeChunk = new StreamBuffer(Base64.getDecoder().decode(ftypBase64));

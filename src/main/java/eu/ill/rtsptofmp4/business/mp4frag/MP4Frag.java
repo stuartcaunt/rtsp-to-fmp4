@@ -15,11 +15,8 @@ public class MP4Frag {
 
     private final static byte[] FTYP = {0x66, 0x74, 0x79, 0x70}; // ftyp
     private final static byte[] MOOV = {0x6d, 0x6f, 0x6f, 0x76}; // moov
-    private final static byte[] MDHD = {0x6d, 0x64, 0x68, 0x64}; // mdhd
     private final static byte[] MOOF = {0x6d, 0x6f, 0x6f, 0x66}; // moof
     private final static byte[] MDAT = {0x6d, 0x64, 0x61, 0x74}; // mdat
-    private final static byte[] TFHD = {0x74, 0x66, 0x68, 0x64}; // tfhd
-    private final static byte[] TRUN = {0x74, 0x72, 0x75, 0x6e}; // trun
     private final static byte[] MFRA = {0x6d, 0x66, 0x72, 0x61}; // mfra
     private final static byte[] HVCC = {0x68, 0x76, 0x63, 0x43}; // hvcC
     private final static byte[] HEV1 = {0x68, 0x65, 0x76, 0x31}; // hev1
@@ -31,16 +28,6 @@ public class MP4Frag {
     private final static byte[] AVC4 = {0x61, 0x76, 0x63, 0x34}; // avc4
     private final static byte[] MP4A = {0x6d, 0x70, 0x34, 0x61}; // mp4a
     private final static byte[] ESDS = {0x65, 0x73, 0x64, 0x73}; // esds
-    private final static boolean HLS_INIT_DEF = true; // hls playlist available after initialization and before 1st segment
-    private final static int HLS_SIZE_DEF = 4; // hls playlist size default
-    private final static int HLS_SIZE_MIN = 2; // hls playlist size minimum
-    private final static int HLS_SIZE_MAX = 20; // hls playlist size maximum
-    private final static int HLS_EXTRA_DEF = 0; // hls playlist extra segments in memory default
-    private final static int HLS_EXTRA_MIN = 0; // hls playlist extra segments in memory minimum
-    private final static int HLS_EXTRA_MAX = 10; // hls playlist extra segments in memory maximum
-    private final static int SEG_SIZE_DEF = 2; // segment list size default
-    private final static int SEG_SIZE_MIN = 2; // segment list size minimum
-    private final static int SEG_SIZE_MAX = 30; // segment list size maximum
     private final static int MOOF_SEARCH_LIMIT = 50; // number of allowed attempts to find missing moof atom
 
     private enum ProcessStage {
@@ -51,11 +38,7 @@ public class MP4Frag {
         MOOF_SEARCH,
     }
 
-    private enum KeyFrameType {
-        UNDEFINED,
-        HVCC,
-        AVCC,
-    }
+    private final SegmentListener segmentListener;
 
     private String mime;
     private byte[] initialization;
@@ -64,45 +47,30 @@ public class MP4Frag {
     private final Object initializationCondition = new Object();
 
     private ProcessStage currentProcessStage = ProcessStage.FIND_FTYP;
-    private KeyFrameType keyFrameType = KeyFrameType.UNDEFINED;
 
-    private Integer ftypLength;
+    private int ftypLength = -1;
     private StreamBuffer ftyp;
-    private Integer timescale;
-    private long timestamp;
-    private int sequence;
-    private boolean allKeyframes;
-    private long totalDuration;
-    private int totalByteLength;
+
+    private int moofLength = -1;
+    private StreamBuffer moof;
+    private int moofBufferSize = - 1;
+    private List<StreamBuffer> moofBuffer;
+    private int moofSearches = -1;
+
+    private int mdatLength = -1;
+    private int mdatBufferSize = - 1;
+    private List<StreamBuffer> mdatBuffer;
 
     private String videoCodec;
     private String audioCodec;
 
-
     private boolean stopped = false;
 
-    public void process(Process process) throws IOException, InterruptedException, MP4FragException {
-//        BufferedReader reader = new BufferedReader(new InputStreamReader(stderr));
-//
-//        int counter = 0;
-//        String line;
-//        try {
-//            while (!this.stopped && (line = reader.readLine()) != null) {
-//                System.out.println(line);
-//                counter++;
-//                if (counter == 2) {
-//                    this.setMime("mp4/doodaa");
-//                } else if (counter == 3) {
-//                    this.setInitialisation("hello".getBytes(StandardCharsets.UTF_8));
-//                }
-//            }
-//
-//        } catch (Exception e) {
-//            if (!this.stopped) {
-//                throw e;
-//            }
-//        }
+    public MP4Frag(final SegmentListener segmentListener) {
+        this.segmentListener = segmentListener;
+    }
 
+    public void process(Process process) throws IOException, InterruptedException, MP4FragException {
         InputStream inputStream = process.getInputStream();
         while (process.isAlive()) {
             while (inputStream.available() > 0) {
@@ -219,18 +187,9 @@ public class MP4Frag {
 
         } else if (this.currentProcessStage.equals(ProcessStage.FIND_MDAT)) {
             this.findMdat(chunk);
-        }
 
-    }
-
-    private void setKeyFrame(StreamBuffer chunk) throws MP4FragException {
-        if (this.keyFrameType.equals(KeyFrameType.UNDEFINED)) {
-
-        } else if (this.keyFrameType.equals(KeyFrameType.HVCC)) {
-
-
-        } else if (this.keyFrameType.equals(KeyFrameType.AVCC)) {
-
+        } else if (this.currentProcessStage.equals(ProcessStage.MOOF_SEARCH)) {
+            this.moofSearch(chunk);
         }
     }
 
@@ -266,17 +225,17 @@ public class MP4Frag {
 
         int moovLength = chunk.readUInt32BE(0);
         if (moovLength < chunkLength) {
-            this.initialize(StreamBuffer.concat(new StreamBuffer[]{this.ftyp, chunk}, this.ftypLength + moovLength));
+            this.initialize(StreamBuffer.concat(this.ftyp, chunk, this.ftypLength + moovLength));
             this.ftyp = null;
-            this.ftypLength = null;
+            this.ftypLength = -1;
             this.currentProcessStage = ProcessStage.FIND_MOOF;
 
             this.parseChunk(chunk.slice(moovLength));
 
         } else if (moovLength == chunkLength) {
-            this.initialize(StreamBuffer.concat(new StreamBuffer[]{this.ftyp, chunk}, this.ftypLength + moovLength));
+            this.initialize(StreamBuffer.concat(this.ftyp, chunk, this.ftypLength + moovLength));
             this.ftyp = null;
-            this.ftypLength = null;
+            this.ftypLength = -1;
             this.currentProcessStage = ProcessStage.FIND_MOOF;
 
         } else {
@@ -287,29 +246,14 @@ public class MP4Frag {
         }
     }
 
-    private void findMoof(StreamBuffer chunk) throws MP4FragException {
-
-    }
-
-    private void findMdat(StreamBuffer chunk) throws MP4FragException {
-
-    }
-
     private void initialize(StreamBuffer chunk) throws MP4FragException {
         this.setInitialisation(chunk.getBytes());
 
-        int mdhdIndex = chunk.indexOf(MDHD);
-        byte mdhdVersion = chunk.get(mdhdIndex + 4);
-        this.timescale = chunk.readUInt32BE(mdhdIndex + (mdhdVersion == 0 ? 16 : 24));
-        this.timestamp = new Date().getTime();
-        this.sequence = -1;
-        this.allKeyframes = true;
-        this.totalDuration = 0;
-        this.totalByteLength = chunk.length();
+//        int mdhdIndex = chunk.indexOf(MDHD);
+//        byte mdhdVersion = chunk.get(mdhdIndex + 4);
+//        int timescale = chunk.readUInt32BE(mdhdIndex + (mdhdVersion == 0 ? 16 : 24));
 
-        this.keyFrameType = KeyFrameType.UNDEFINED;
-
-        List<String> codecs = new ArrayList<String>();
+        List<String> codecs = new ArrayList<>();
         String mp4Type = "";
 
         if (this.parseCodecAVCC(chunk) || this.parseCodecHVCC(chunk)) {
@@ -329,10 +273,163 @@ public class MP4Frag {
         this.setMime(mp4Type + "/mp4; codecs=\"" + String.join(", ", codecs) + "\"");
     }
 
+    private void moofSearch(StreamBuffer chunk) throws MP4FragException {
+        if (this.moofSearches < MOOF_SEARCH_LIMIT) {
+            this.moofSearches++;
+
+            //console.warn(`MOOF search attempt number ${this._moofSearches}.`);
+            int index = chunk.indexOf(MOOF);
+            if (index > 3 && chunk.length() > index + 3) {
+                this.moofSearches = -1;
+                this.currentProcessStage = ProcessStage.FIND_MOOF;
+                this.parseChunk(chunk.slice(index - 4));
+            }
+        } else {
+            throw new MP4FragException("MOOF %s search failed after %d attempts.", Arrays.toString(MOOF), this.moofSearches);
+        }
+    }
+
+    private void findMoof(StreamBuffer chunk) throws MP4FragException {
+        if (this.moofBuffer != null) {
+            this.moofBuffer.add(chunk);
+
+            int chunkLength = chunk.length();
+            this.moofBufferSize += chunkLength;
+            if (this.moofLength == this.moofBufferSize) {
+                //todo verify this works
+                this.moof = StreamBuffer.concat(this.moofBuffer, this.moofLength);
+                this.moofBuffer = null;
+                this.moofBufferSize = -1;
+                this.currentProcessStage = ProcessStage.FIND_MDAT;
+
+            } else if (this.moofLength < this.moofBufferSize) {
+                this.moof = StreamBuffer.concat(this.moofBuffer, this.moofLength);
+                int sliceIndex = chunkLength - (this.moofBufferSize - this.moofLength);
+                this.moofBuffer = null;
+                this.moofBufferSize = -1;
+                this.currentProcessStage = ProcessStage.FIND_MDAT;
+
+                this.parseChunk(chunk.slice(sliceIndex));
+            }
+
+        } else {
+            int chunkLength = chunk.length();
+            if (chunkLength < 8 || chunk.indexOf(MOOF) != 4) {
+                // ffmpeg occasionally pipes corrupt data, lets try to get back to normal if we can find next MOOF box before attempts run out
+                int mfraIndex = chunk.indexOf(MFRA);
+                if (mfraIndex != -1) {
+                    // console.log(`MFRA was found at ${mfraIndex}. This is expected at the end of stream.`);
+                    return;
+                }
+                // console.warn('Failed to find MOOF. Starting MOOF search. Ignore this if your file stream input has ended.');
+                this.moofSearches = 0;
+                this.currentProcessStage = ProcessStage.MOOF_SEARCH;
+
+                this.parseChunk(chunk);
+                return;
+            }
+
+            this.moofLength = chunk.readUInt32BE(0);
+            if (this.moofLength == 0) {
+                throw new MP4FragException("Bad data from input stream reports %s length of 0.", Arrays.toString(MOOF));
+            }
+
+            if (this.moofLength < chunkLength) {
+                this.moof = chunk.slice(0, this.moofLength);
+                this.currentProcessStage = ProcessStage.FIND_MDAT;
+                this.parseChunk(chunk.slice(this.moofLength));
+
+            } else if (this.moofLength == chunkLength) {
+                // todo verify this works
+                this.moof = chunk;
+                this.currentProcessStage = ProcessStage.FIND_MDAT;
+
+            } else {
+                this.moofBuffer = new ArrayList<>(Arrays.asList(chunk));
+                this.moofBufferSize = chunkLength;
+            }
+        }
+    }
+
+    private void findMdat(StreamBuffer chunk) throws MP4FragException {
+        if (this.mdatBuffer != null) {
+            this.mdatBuffer.add(chunk);
+            int chunkLength = chunk.length();
+            this.mdatBufferSize += chunkLength;
+            if (this.mdatLength == this.mdatBufferSize) {
+                this.setSegment(this.moof, this.mdatBuffer, this.moofLength + this.mdatLength);
+
+                this.moof = null;
+                this.mdatBuffer = null;
+                this.mdatBufferSize = -1;
+                this.mdatLength = -1;
+                this.moofLength = -1;
+                this.currentProcessStage = ProcessStage.FIND_MOOF;
+
+            } else if (this.mdatLength < this.mdatBufferSize) {
+                this.setSegment(this.moof, this.mdatBuffer, this.moofLength + this.mdatLength);
+
+                int sliceIndex = chunkLength - (this.mdatBufferSize - this.mdatLength);
+                this.moof = null;
+                this.mdatBuffer = null;
+                this.mdatBufferSize = -1;
+                this.mdatLength = -1;
+                this.moofLength = -1;
+                this.currentProcessStage = ProcessStage.FIND_MOOF;
+
+                this.parseChunk(chunk.slice(sliceIndex));
+            }
+        } else {
+            int chunkLength = chunk.length();
+            if (chunkLength < 8 || chunk.indexOf(MDAT) != 4) {
+                throw new MP4FragException("MDAT %s not found", Arrays.toString(MDAT));
+            }
+            this.mdatLength = chunk.readUInt32BE(0);
+            if (this.mdatLength > chunkLength) {
+                this.mdatBuffer = new ArrayList<>();
+                this.mdatBuffer.add(chunk);
+                this.mdatBufferSize = chunkLength;
+
+            } else if (this.mdatLength == chunkLength) {
+                this.setSegment(this.moof, chunk, this.moofLength + chunkLength);
+                this.moof = null;
+                this.moofLength = -1;
+                this.mdatLength = -1;
+
+                this.currentProcessStage = ProcessStage.FIND_MOOF;
+
+            } else {
+                this.setSegment(this.moof, chunk, this.moofLength + this.mdatLength);
+                int sliceIndex = this.mdatLength;
+                this.moof = null;
+                this.moofLength = -1;
+                this.mdatLength = -1;
+                this.currentProcessStage = ProcessStage.FIND_MOOF;
+
+                this.parseChunk(chunk.slice(sliceIndex));
+            }
+        }
+    }
+
+    private void setSegment(StreamBuffer moof, StreamBuffer mdat, int segmentLength) {
+        StreamBuffer segment = StreamBuffer.concat(moof, mdat, segmentLength);
+
+        this.segmentListener.onSegment(segment);
+    }
+
+    private void setSegment(StreamBuffer moof, List<StreamBuffer> mdatBuffer, int segmentLength) {
+        List<StreamBuffer> segmentBuffer = new ArrayList<>();
+        segmentBuffer.add(moof);
+        segmentBuffer.addAll(mdatBuffer);
+        StreamBuffer segment = StreamBuffer.concat(segmentBuffer, segmentLength);
+
+        this.segmentListener.onSegment(segment);
+    }
+
     private boolean parseCodecMP4A(StreamBuffer chunk) {
         int index = chunk.indexOf(MP4A);
         if (index != -1) {
-            List<String> codecs =  new ArrayList<String>(Arrays.asList("mp4a"));
+            List<String> codecs =  new ArrayList<>(Arrays.asList("mp4a"));
             int esdsIndex = chunk.indexOf(ESDS, index);
             // verify tags 3, 4, 5 to be in expected positions
             if (esdsIndex != -1 && chunk.get(esdsIndex + 8) == 0x03 && chunk.get(esdsIndex + 16) == 0x04 && chunk.get(esdsIndex + 34) == 0x05) {
@@ -348,7 +445,7 @@ public class MP4Frag {
         return false;
     }
 
-    private boolean parseCodecAVCC(StreamBuffer chunk) throws MP4FragException {
+    private boolean parseCodecAVCC(StreamBuffer chunk) {
         int index = chunk.indexOf(AVCC);
         if (index != -1) {
             List<String> codecs = new ArrayList<>();
@@ -371,7 +468,6 @@ public class MP4Frag {
             codecs.add(chunk.slice(index + 5, index + 8).toString("hex").toUpperCase());
 
             this.videoCodec = String.join(".", codecs);
-            this.keyFrameType = KeyFrameType.AVCC;
 
             return true;
         }
@@ -414,7 +510,6 @@ public class MP4Frag {
             }
 
             this.videoCodec = String.join(".", codecs);
-            this.keyFrameType = KeyFrameType.HVCC;
 
             return true;
         }
@@ -441,5 +536,9 @@ public class MP4Frag {
             this.initialization = initialization;
             this.initializationCondition.notify();
         }
+    }
+
+    public interface SegmentListener {
+        void onSegment(StreamBuffer segment);
     }
 }

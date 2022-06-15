@@ -1,6 +1,7 @@
 package eu.ill.rtsptofmp4.business.streaming;
 
 import eu.ill.rtsptofmp4.business.mp4frag.MP4Frag;
+import eu.ill.rtsptofmp4.business.mp4frag.StreamBuffer;
 import eu.ill.rtsptofmp4.models.exceptions.MP4FragException;
 import eu.ill.rtsptofmp4.models.exceptions.StreamingException;
 import eu.ill.rtsptofmp4.models.StreamInfo;
@@ -33,7 +34,7 @@ public class RTSPWorker {
         if (this.thread == null) {
             this.client = client;
 
-            this.mp4Frag = new MP4Frag();
+            this.mp4Frag = new MP4Frag(this::onSegment);
 
             this.thread = new Thread(this::threadMain);
             this.thread.start();
@@ -91,6 +92,12 @@ public class RTSPWorker {
         }
     }
 
+    private synchronized void onSegment(StreamBuffer segment) {
+        if (this.client != null) {
+            this.client.onSegment(segment.getBytes());
+        }
+    }
+
     private void threadMain() {
         Log.infof("Starting ffmpeg for stream '%s'", this.streamInfo.getName());
 
@@ -118,9 +125,9 @@ public class RTSPWorker {
         processBuilder.command(params);
 
 //        processBuilder.redirectInput(ProcessBuilder.Redirect.DISCARD);
-//        processBuilder.redirectError(ProcessBuilder.Redirect.DISCARD);
+        processBuilder.redirectError(ProcessBuilder.Redirect.DISCARD);
 
-        int exitCode = 0;
+        int exitCode;
         try {
             this.process = processBuilder.start();
             this.mp4Frag.process(this.process);
